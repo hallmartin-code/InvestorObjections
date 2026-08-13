@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}{{ job.company or job.filename }} — Deck Analyzer{% endblock %}
+{% block stage_class %}{% if job.status == 'done' %}wide{% endif %}{% endblock %}
+
+{% block head %}
+{% if job.status in ("queued", "running") %}
+<noscript><meta http-equiv="refresh" content="4"></noscript>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+{% if job.status == "error" %}
+<div class="card">
+  <div class="eyebrow coral">Run failed</div>
+  <h1>{{ job.filename }}</h1>
+  <div class="notice error" style="margin-top:20px">{{ job.error }}</div>
+  <ul class="steps">
+    {% for step in job.steps() %}
+    <li class="{{ step.state }}"><span class="bullet"></span>{{ step.label }}</li>
+    {% endfor %}
+  </ul>
+  <div class="disclosure">
+    <a class="btn ghost" href="/">&larr; Analyze another deck</a>
+  </div>
+</div>
+
+{% elif job.status == "done" %}
+<div class="card">
+  <div class="eyebrow">Analysis complete</div>
+  <h1>{{ job.company or job.filename }}</h1>
+  <p class="lede" style="margin-bottom:26px">
+    {{ job.filename }} &middot; context: {{ job.context }}
+  </p>
+  <div class="btn-row">
+    {% if job.pdf_path %}
+    <a class="btn primary" href="/jobs/{{ job.id }}/download/pdf">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/></svg>
+      One-pager PDF
+    </a>
+    {% endif %}
+    {% if job.md_path %}
+    <a class="btn" href="/jobs/{{ job.id }}/download/markdown">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/></svg>
+      Emails (.md)
+    </a>
+    {% endif %}
+    <a class="btn ghost" href="/">Analyze another deck</a>
+  </div>
+  {% if job.mail_status == "failed" %}
+  <div class="notice warn" style="margin:24px 0 0">
+    <strong>The archive copy could not be emailed.</strong> {{ job.mail_error }}
+    Your downloads above are unaffected.
+  </div>
+  {% endif %}
+  <div class="disclosure">
+    These files are removed from the server {{ ttl_minutes }} minutes after the run started.
+    {% if job.mail_status == "sent" %}
+    A copy was emailed to <code>{{ job.mail_to }}</code>.
+    {% endif %}
+  </div>
+</div>
+
+{% if job.emails %}
+<div class="card">
+  <div class="eyebrow amber">Follow-up emails</div>
+  <h2 style="margin-bottom:4px">Five angles on why now</h2>
+  {% for email in job.emails %}
+  <div class="email">
+    <div class="email-head">
+      <div class="email-title"><span class="num">{{ "%02d"|format(email.number) }}</span>{{ email.title }}</div>
+      <div class="email-count">{{ email.words }} words</div>
+    </div>
+    <pre>{{ email.body }}</pre>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="card">
+  <div class="eyebrow amber">{{ job.stage }}</div>
+  <h1>Analyzing<span class="arrow">&rarr;</span><span class="to">{{ job.company or job.filename }}</span></h1>
+  <p class="lede">
+    Two Claude calls run against this deck — extraction, then the email set. This usually
+    takes one to three minutes. Leave this page open.
+  </p>
+  <ul class="steps">
+    {% for step in job.steps() %}
+    <li class="{{ step.state }}"><span class="bullet"></span>{{ step.label }}</li>
+    {% endfor %}
+  </ul>
+  <div class="disclosure meta">
+    <b>Job</b> {{ job.id[:12] }} &middot; <b>Context</b> {{ job.context }}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{% if job.status in ("queued", "running") %}
+<script>
+(function () {
+  var url = '/api/jobs/{{ job.id }}';
+  var stage = {{ job.stage | tojson }};
+  setInterval(function () {
+    fetch(url, { headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (state) {
+        if (!state) { return; }
+        // Reload on completion, or when the pipeline advances a step.
+        if (state.status === 'done' || state.status === 'error' || state.stage !== stage) {
+          window.location.reload();
+        }
+      })
+      .catch(function () { /* transient network blip — try again next tick */ });
+  }, 2500);
+})();
+</script>
+{% endif %}
+{% endblock %}

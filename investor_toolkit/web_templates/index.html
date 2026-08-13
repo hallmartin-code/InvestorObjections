@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}TEN Capital Network — Deck Analyzer{% endblock %}
+
+{% block content %}
+{% if api_key_missing %}
+<div class="notice warn">
+  <strong>ANTHROPIC_API_KEY is not configured.</strong>
+  Set it in the service environment before processing a deck.
+</div>
+{% endif %}
+{% if mail_problem %}
+<div class="notice warn">
+  <strong>Archive email is not set up correctly.</strong>
+  {{ mail_problem }} — decks will still process, but no copy will be sent.
+</div>
+{% endif %}
+
+<form class="card" action="/jobs" method="post" enctype="multipart/form-data" id="deck-form">
+  <div class="eyebrow">Deck Analyzer</div>
+  <h1>Pitch Deck<span class="arrow">&rarr;</span><span class="to">Investor One&#8209;Pager</span></h1>
+  <p class="lede">
+    Upload a pitch deck and get a polished single-page investor PDF plus five follow-up
+    emails, analyzed and structured by Claude.
+  </p>
+
+  <label class="dropzone" for="deck-upload" id="dropzone">
+    <div class="dropzone-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--ink-100)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M14 3v4a1 1 0 0 0 1 1h4"/>
+        <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/>
+      </svg>
+    </div>
+    <div class="dropzone-title" id="dz-title">Click to choose a deck</div>
+    <div class="dropzone-sub" id="dz-sub">
+      <b>.pptx</b> &middot; <b>.pdf</b> &middot; <b>.docx</b> &nbsp;&middot;&nbsp; up to {{ max_mb }}&nbsp;MB
+    </div>
+    <input class="file-input" type="file" id="deck-upload" name="deck" accept="{{ extensions }}" required>
+  </label>
+
+  <label class="field">
+    <span class="field-label">Interaction context</span>
+    <input type="text" name="context" value="initial outreach"
+           placeholder="e.g. intro via mutual LP, met at JPM Healthcare 2026">
+  </label>
+
+  <div class="field">
+    <span class="field-label">Outputs</span>
+    <div class="chips">
+      <label class="chip">
+        <input type="checkbox" name="outputs" value="pdf" checked>
+        <span class="tick">
+          <svg viewBox="0 0 12 12" fill="none" stroke="#0B1526" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6.4 4.6 9 10 3.2"/></svg>
+        </span>
+        One-pager PDF
+      </label>
+      <label class="chip">
+        <input type="checkbox" name="outputs" value="emails" checked>
+        <span class="tick">
+          <svg viewBox="0 0 12 12" fill="none" stroke="#0B1526" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6.4 4.6 9 10 3.2"/></svg>
+        </span>
+        Five follow-up emails
+      </label>
+    </div>
+  </div>
+
+  <button class="cta" type="submit" id="submit-btn" {% if api_key_missing %}disabled{% endif %}>
+    Generate one-pager PDF
+  </button>
+
+  <div class="disclosure" id="disclosure">
+    The uploaded deck is processed on the server and deleted once the run finishes.
+    Generated files are downloadable for {{ ttl_minutes }} minutes, then removed.
+    Analysis runs on Claude and typically takes one to three minutes.
+    {% if mail_to %}
+    A copy of every generated one-pager is emailed to <code>{{ mail_to }}</code>.
+    {% endif %}
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const form = document.getElementById('deck-form');
+  const input = document.getElementById('deck-upload');
+  const zone = document.getElementById('dropzone');
+  const title = document.getElementById('dz-title');
+  const sub = document.getElementById('dz-sub');
+  const btn = document.getElementById('submit-btn');
+  const allowed = {{ extension_list | tojson }};
+  const maxBytes = {{ max_bytes }};
+  const defaultTitle = title.textContent;
+  const defaultSub = sub.innerHTML;
+  const apiKeyMissing = {{ 'true' if api_key_missing else 'false' }};
+
+  function reject(message) {
+    zone.classList.remove('has-file');
+    title.textContent = defaultTitle;
+    sub.innerHTML = '<b style="color:var(--coral-soft)">' + message + '</b>';
+    input.value = '';
+    btn.disabled = true;
+  }
+
+  function accept(file) {
+    const name = file.name.toLowerCase();
+    const ext = name.slice(name.lastIndexOf('.'));
+    if (!allowed.includes(ext)) {
+      reject('Unsupported file type — use ' + allowed.join(', '));
+      return;
+    }
+    if (file.size > maxBytes) {
+      reject('That file is larger than the ' + Math.round(maxBytes / 1048576) + 'MB limit');
+      return;
+    }
+    zone.classList.add('has-file');
+    title.textContent = file.name;
+    sub.innerHTML = '<b>' + (file.size / 1048576).toFixed(1) + ' MB</b> &middot; ready to analyze';
+    btn.disabled = apiKeyMissing;
+  }
+
+  input.addEventListener('change', function () {
+    if (input.files.length) { accept(input.files[0]); }
+  });
+
+  ['dragenter', 'dragover'].forEach(function (evt) {
+    zone.addEventListener(evt, function (e) {
+      e.preventDefault();
+      zone.classList.add('is-dragging');
+    });
+  });
+  ['dragleave', 'drop'].forEach(function (evt) {
+    zone.addEventListener(evt, function (e) {
+      e.preventDefault();
+      zone.classList.remove('is-dragging');
+    });
+  });
+  zone.addEventListener('drop', function (e) {
+    const files = e.dataTransfer && e.dataTransfer.files;
+    if (files && files.length) {
+      input.files = files;
+      accept(files[0]);
+    }
+  });
+
+  // Nothing selected yet, so the CTA starts inert.
+  btn.disabled = true;
+
+  form.addEventListener('submit', function () {
+    btn.disabled = true;
+    btn.textContent = 'Analyzing deck…';
+  });
+})();
+</script>
+{% endblock %}
