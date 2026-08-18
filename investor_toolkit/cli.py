@@ -67,7 +67,9 @@ def main(
     print_emails: bool,
 ) -> None:
     """Process an investor pitch deck and generate a one-pager PDF and follow-up emails."""
-    load_dotenv()
+    # override=True: a project .env is an explicit, deliberate choice and should beat a
+    # stale machine-wide variable. Railway sets real env vars and ships no .env file.
+    load_dotenv(override=True)
 
     if emails_only and pdf_only:
         _fail("--emails-only and --pdf-only cannot be used together.")

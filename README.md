@@ -1,7 +1,7 @@
 # investor-toolkit
 
 A tool for early-stage investment work, usable as a CLI or as a web app. Point it at a pitch
-deck (PDF or PPTX) and it extracts the deal facts with Claude, then produces two artifacts: a
+deck (PDF, PPTX or DOCX) and it extracts the deal facts with Claude, then produces two artifacts: a
 branded single-page investor leave-behind PDF, and a set of five follow-up emails, each anchored
 to a different "why now" angle (timing inflection, de-risking, market structural shift, capital
 efficiency, and a soft re-engagement ask). Extraction is deliberately conservative — the model is
@@ -24,6 +24,12 @@ cp .env.example .env      # then edit .env and set ANTHROPIC_API_KEY
 An Anthropic API key is required — both the deal extraction and the email generation call
 Claude. Create one at [console.anthropic.com](https://console.anthropic.com/settings/keys). The
 tool exits immediately if `ANTHROPIC_API_KEY` is not set.
+
+`.env` is loaded with `override=True`, so its values beat machine-wide environment variables of
+the same name — a stale global `ANTHROPIC_API_KEY` can't silently shadow the project's key. The
+trade-off is that a one-off shell override (`ANTHROPIC_API_KEY=other investor-toolkit ...`) is
+ignored while `.env` exists; edit or remove the file instead. On Railway there is no `.env`, so
+the service variables are used directly.
 
 ## CLI usage
 

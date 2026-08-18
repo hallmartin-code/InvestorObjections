@@ -32,7 +32,9 @@ from .one_pager import generate_one_pager
 from .parser import SUPPORTED_EXTENSIONS, extract_text
 from .synthesizer import SynthesisError, extract_deal_data
 
-load_dotenv()
+# override=True: a project .env is an explicit, deliberate choice and should beat a stale
+# machine-wide variable. Railway sets real env vars and ships no .env file.
+load_dotenv(override=True)
 
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 JOB_TTL_SECONDS = int(os.environ.get("JOB_TTL_SECONDS", "3600"))
