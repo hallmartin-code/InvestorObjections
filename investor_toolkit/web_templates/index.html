@@ -19,8 +19,8 @@
   <div class="eyebrow">Deck Analyzer</div>
   <h1>Pitch Deck<span class="arrow">&rarr;</span><span class="to">Investor One&#8209;Pager</span></h1>
   <p class="lede">
-    Upload a pitch deck and get a polished single-page investor PDF plus five follow-up
-    emails, analyzed and structured by Claude.
+    Upload a pitch deck and get a polished single-page investor PDF plus the ten objections
+    an investor will raise, each with a rebuttal grounded in the deck.
   </p>
 
   <label class="dropzone" for="deck-upload" id="dropzone">
@@ -54,17 +54,17 @@
         One-pager PDF
       </label>
       <label class="chip">
-        <input type="checkbox" name="outputs" value="emails" checked>
+        <input type="checkbox" name="outputs" value="objections" checked>
         <span class="tick">
           <svg viewBox="0 0 12 12" fill="none" stroke="#0B1526" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6.4 4.6 9 10 3.2"/></svg>
         </span>
-        Five follow-up emails
+        Ten objections &amp; rebuttals
       </label>
     </div>
   </div>
 
   <button class="cta" type="submit" id="submit-btn" {% if api_key_missing %}disabled{% endif %}>
-    Generate one-pager PDF
+    Analyze deck
   </button>
 
   <div class="disclosure" id="disclosure">

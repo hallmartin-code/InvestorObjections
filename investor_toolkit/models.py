@@ -1,7 +1,7 @@
-"""Pydantic models for extracted deal data and the generated email set.
+"""Pydantic models for extracted deal data and the generated objection set.
 
-The set of fields analyzed in a deck and the set of email angles are declared in the document
-template; the models here are the typed surface for those declarations, and
+The set of fields analyzed in a deck and the set of investor objections answered are declared
+in the document template; the models here are the typed surface for those declarations, and
 :func:`validate_against_template` checks the two stay in step.
 """
 
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from .template import TemplateError, analysis_fields, email_titles
+from .template import TemplateError, analysis_fields, objection_titles
 
 
 class DealData(BaseModel):
@@ -43,31 +43,43 @@ class DealData(BaseModel):
         return slug or "company"
 
 
-class EmailSet(BaseModel):
-    """Five follow-up emails, one per 'why now' angle."""
+class Objection(BaseModel):
+    """One investor objection and the rebuttal to it."""
 
-    timing_inflection: str = ""
-    de_risking_validation: str = ""
-    market_structural_shift: str = ""
-    capital_efficiency_ownership: str = ""
-    soft_ask_reengagement: str = ""
+    objection: str = ""
+    rebuttal: str = ""
+
+
+class ObjectionSet(BaseModel):
+    """The ten investor objections, one per category declared in the template."""
+
+    too_early: Objection = Field(default_factory=Objection)
+    market_size: Objection = Field(default_factory=Objection)
+    competition: Objection = Field(default_factory=Objection)
+    differentiation_moat: Objection = Field(default_factory=Objection)
+    team_gaps: Objection = Field(default_factory=Objection)
+    regulatory_path: Objection = Field(default_factory=Objection)
+    capital_intensity: Objection = Field(default_factory=Objection)
+    commercial_adoption: Objection = Field(default_factory=Objection)
+    valuation_terms: Objection = Field(default_factory=Objection)
+    exit_path: Objection = Field(default_factory=Objection)
 
 
 def validate_against_template() -> None:
-    """Fail loudly if the active template declares fields or angles the models cannot hold."""
+    """Fail loudly if the active template declares fields or objections the models can't hold."""
     unknown_fields = [f for f in analysis_fields() if f not in DealData.model_fields]
     if unknown_fields:
         raise TemplateError(
             "Template 'analysis_fields' declares fields that DealData does not define: "
             + ", ".join(sorted(unknown_fields))
         )
-    unknown_angles = [k for k in email_titles() if k not in EmailSet.model_fields]
-    if unknown_angles:
+    unknown = [k for k in objection_titles() if k not in ObjectionSet.model_fields]
+    if unknown:
         raise TemplateError(
-            "Template 'email_set.angles' declares keys that EmailSet does not define: "
-            + ", ".join(sorted(unknown_angles))
+            "Template 'objection_set.objections' declares keys that ObjectionSet does not "
+            "define: " + ", ".join(sorted(unknown))
         )
 
 
-# Angle key -> display title, sourced from the active document template.
-EMAIL_TITLES: dict[str, str] = email_titles()
+# Objection key -> display title, sourced from the active document template.
+OBJECTION_TITLES: dict[str, str] = objection_titles()

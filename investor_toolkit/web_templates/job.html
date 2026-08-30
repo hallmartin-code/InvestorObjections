@@ -42,7 +42,7 @@
     {% if job.md_path %}
     <a class="btn" href="/jobs/{{ job.id }}/download/markdown">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/></svg>
-      Emails (.md)
+      Objections (.md)
     </a>
     {% endif %}
     <a class="btn ghost" href="/">Analyze another deck</a>
@@ -61,17 +61,19 @@
   </div>
 </div>
 
-{% if job.emails %}
+{% if job.objections %}
 <div class="card">
-  <div class="eyebrow amber">Follow-up emails</div>
-  <h2 style="margin-bottom:4px">Five angles on why now</h2>
-  {% for email in job.emails %}
+  <div class="eyebrow amber">Investor objections</div>
+  <h2 style="margin-bottom:4px">Ten objections, each with a rebuttal</h2>
+  {% for item in job.objections %}
   <div class="email">
     <div class="email-head">
-      <div class="email-title"><span class="num">{{ "%02d"|format(email.number) }}</span>{{ email.title }}</div>
-      <div class="email-count">{{ email.words }} words</div>
+      <div class="email-title"><span class="num">{{ "%02d"|format(item.number) }}</span>{{ item.title }}</div>
     </div>
-    <pre>{{ email.body }}</pre>
+    <div class="qa-label">Objection</div>
+    <pre>{{ item.objection }}</pre>
+    <div class="qa-label">Rebuttal</div>
+    <pre>{{ item.rebuttal }}</pre>
   </div>
   {% endfor %}
 </div>
@@ -82,7 +84,7 @@
   <div class="eyebrow amber">{{ job.stage }}</div>
   <h1>Analyzing<span class="arrow">&rarr;</span><span class="to">{{ job.company or job.filename }}</span></h1>
   <p class="lede">
-    Two Claude calls run against this deck — extraction, then the email set. This usually
+    Two Claude calls run against this deck — extraction, then the objection set. This usually
     takes one to three minutes. Leave this page open.
   </p>
   <ul class="steps">

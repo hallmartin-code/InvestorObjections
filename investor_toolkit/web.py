@@ -26,14 +26,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .email_generator import (
-    EmailGenerationError,
-    emails_to_list,
-    emails_to_markdown,
-    generate_emails,
-)
 from .mailer import MailError, load_config, send_run_copy
-from .models import DealData, EmailSet
+from .models import DealData, ObjectionSet
+from .objections import (
+    ObjectionGenerationError,
+    generate_objections,
+    objections_to_list,
+    objections_to_markdown,
+)
 from .one_pager import generate_one_pager
 from .parser import SUPPORTED_EXTENSIONS, extract_text
 from .synthesizer import SynthesisError, extract_deal_data
@@ -51,7 +51,7 @@ MAX_WORKERS = int(os.environ.get("WEB_MAX_WORKERS", "2"))
 STAGE_PARSE = "Parsing deck"
 STAGE_EXTRACT = "Extracting deal data"
 STAGE_PDF = "Generating one-pager"
-STAGE_EMAILS = "Generating emails"
+STAGE_OBJECTIONS = "Generating objections"
 STAGE_MAIL = "Emailing archive copy"
 
 ERROR_HEADINGS = {
@@ -120,7 +120,7 @@ class Job:
     filename: str
     context: str
     want_pdf: bool
-    want_emails: bool
+    want_objections: bool
     workdir: Path
     created_at: float = field(default_factory=time.monotonic)
     status: str = "queued"  # queued | running | done | error
@@ -129,7 +129,7 @@ class Job:
     company: str = ""
     pdf_path: Path | None = None
     md_path: Path | None = None
-    emails: list[dict] = field(default_factory=list)
+    objections: list[dict] = field(default_factory=list)
     mail_to: str | None = None
     mail_status: str | None = None  # None | "sent" | "failed"
     mail_error: str | None = None
@@ -139,8 +139,8 @@ class Job:
         labels = [STAGE_PARSE, STAGE_EXTRACT]
         if self.want_pdf:
             labels.append(STAGE_PDF)
-        if self.want_emails:
-            labels.append(STAGE_EMAILS)
+        if self.want_objections:
+            labels.append(STAGE_OBJECTIONS)
         if self.mail_to:
             labels.append(STAGE_MAIL)
 
@@ -171,7 +171,7 @@ class Job:
             "company": self.company,
             "pdf": f"/jobs/{self.id}/download/pdf" if self.pdf_path else None,
             "markdown": f"/jobs/{self.id}/download/markdown" if self.md_path else None,
-            "emails": self.emails,
+            "objections": self.objections,
             "mail_to": self.mail_to,
             "mail_status": self.mail_status,
             "mail_error": self.mail_error,
@@ -218,15 +218,15 @@ def _run_job(job: Job, deck_path: Path) -> None:
             generate_one_pager(deal, str(pdf_path))
             job.pdf_path = pdf_path
 
-        if job.want_emails:
-            job.stage = STAGE_EMAILS
-            emails: EmailSet = generate_emails(deal, job.context)
-            md_path = job.workdir / f"{deal.slug()}_follow_up_emails.md"
+        if job.want_objections:
+            job.stage = STAGE_OBJECTIONS
+            items: ObjectionSet = generate_objections(deal, job.context)
+            md_path = job.workdir / f"{deal.slug()}_objections.md"
             md_path.write_text(
-                emails_to_markdown(deal, emails, job.context), encoding="utf-8"
+                objections_to_markdown(deal, items, job.context), encoding="utf-8"
             )
             job.md_path = md_path
-            job.emails = emails_to_list(emails)
+            job.objections = objections_to_list(items)
 
         # The archive copy is a side effect, not the deliverable: a mail failure is
         # reported on the results page but never loses a completed analysis.
@@ -238,14 +238,14 @@ def _run_job(job: Job, deck_path: Path) -> None:
                     deck_filename=job.filename,
                     context=job.context,
                     attachments=[p for p in (job.pdf_path, job.md_path) if p],
-                    emails=job.emails,
+                    objections=job.objections,
                 )
                 job.mail_status = "sent"
             except MailError as exc:
                 job.mail_status, job.mail_error = "failed", str(exc)
 
         job.stage, job.status = "Complete", "done"
-    except (SynthesisError, EmailGenerationError, ValueError, FileNotFoundError) as exc:
+    except (SynthesisError, ObjectionGenerationError, ValueError, FileNotFoundError) as exc:
         # Leave job.stage on the step that failed so the stepper can mark it.
         job.status, job.error = "error", str(exc)
     except Exception as exc:  # unexpected: still surface something actionable
@@ -310,7 +310,7 @@ def index(request: Request, _: None = Depends(require_access)) -> HTMLResponse:
 async def create_job(
     deck: UploadFile = File(...),
     context: str = Form("initial outreach"),
-    outputs: list[str] = Form(default=["pdf", "emails"]),
+    outputs: list[str] = Form(default=["pdf", "objections"]),
     _: None = Depends(require_access),
 ) -> RedirectResponse:
     if not api_key_present():
@@ -334,8 +334,8 @@ async def create_job(
         )
 
     want_pdf = "pdf" in outputs
-    want_emails = "emails" in outputs
-    if not (want_pdf or want_emails):
+    want_objections = "objections" in outputs
+    if not (want_pdf or want_objections):
         raise HTTPException(status_code=400, detail="Select at least one output.")
 
     _sweep_expired()
@@ -349,7 +349,7 @@ async def create_job(
         filename=deck.filename or f"deck{suffix}",
         context=(context or "initial outreach").strip(),
         want_pdf=want_pdf,
-        want_emails=want_emails,
+        want_objections=want_objections,
         workdir=workdir,
         mail_to=mail_state()[0],
     )

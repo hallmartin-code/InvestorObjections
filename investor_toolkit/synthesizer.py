@@ -1,7 +1,7 @@
 """Deal data extraction: turn raw deck text into a structured DealData via Claude.
 
 Also holds the shared Claude client and the structured-output call used by
-:mod:`investor_toolkit.email_generator`.
+:mod:`investor_toolkit.objections`.
 """
 
 from __future__ import annotations

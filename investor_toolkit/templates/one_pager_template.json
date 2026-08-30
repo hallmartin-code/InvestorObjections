@@ -2,7 +2,6 @@
   "template_name": "investor_one_pager",
   "version": "1.0",
   "description": "Structural template for the investor one-pager and the follow-up email set. Defines the fields analyzed in every deck, the sections rendered on the page, and the layout and typography of each block. Contains no company-specific content: every value here is structure, label, or style.",
-
   "analysis_fields": {
     "company_name": "The company name exactly as written in the deck.",
     "tagline": "One-line positioning statement or descriptor for the company.",
@@ -19,7 +18,6 @@
     "competitive_moat": "IP, exclusivity, network effects, or other stated defensibility.",
     "contact": "Founder or contact name and email address if present in the deck."
   },
-
   "page": {
     "size": "letter",
     "orientation": "portrait",
@@ -29,7 +27,6 @@
     "gutter_pt": 18,
     "max_pages": 1
   },
-
   "palette": {
     "navy": "#1B2A4A",
     "tagline_gray": "#A8B8D0",
@@ -39,7 +36,6 @@
     "black": "#000000",
     "white": "#FFFFFF"
   },
-
   "typography": {
     "body_font": "Helvetica",
     "bold_font": "Helvetica-Bold",
@@ -49,7 +45,6 @@
     "label_gap_pt": 3.0,
     "section_gap_pt": 4.0
   },
-
   "header": {
     "height_pt": 80,
     "background": "navy",
@@ -74,36 +69,64 @@
       }
     ]
   },
-
   "body": {
     "top_padding_pt": 22,
     "bottom_padding_pt": 14,
     "columns": [
       {
         "name": "left",
-        "width_ratio": 0.60,
+        "width_ratio": 0.6,
         "sections": [
-          { "label": "PROBLEM", "field": "problem" },
-          { "label": "SOLUTION", "field": "solution" },
-          { "label": "WHY NOW", "field": "why_now" },
-          { "label": "BUSINESS MODEL", "field": "business_model" },
-          { "label": "MARKET SIZE", "field": "market_size" }
+          {
+            "label": "PROBLEM",
+            "field": "problem"
+          },
+          {
+            "label": "SOLUTION",
+            "field": "solution"
+          },
+          {
+            "label": "WHY NOW",
+            "field": "why_now"
+          },
+          {
+            "label": "BUSINESS MODEL",
+            "field": "business_model"
+          },
+          {
+            "label": "MARKET SIZE",
+            "field": "market_size"
+          }
         ]
       },
       {
         "name": "right",
-        "width_ratio": 0.40,
+        "width_ratio": 0.4,
         "sections": [
-          { "label": "TRACTION", "field": "traction" },
-          { "label": "TEAM", "field": "team" },
-          { "label": "STAGE", "field": "stage" },
-          { "label": "ASK", "field": "ask" },
-          { "label": "KEY RISKS RETIRED", "field": "key_risks_retired" }
+          {
+            "label": "TRACTION",
+            "field": "traction"
+          },
+          {
+            "label": "TEAM",
+            "field": "team"
+          },
+          {
+            "label": "STAGE",
+            "field": "stage"
+          },
+          {
+            "label": "ASK",
+            "field": "ask"
+          },
+          {
+            "label": "KEY RISKS RETIRED",
+            "field": "key_risks_retired"
+          }
         ]
       }
     ]
   },
-
   "footer": {
     "height_pt": 40,
     "background": "footer_bg",
@@ -115,47 +138,76 @@
     "right_placeholder": "Contact name — email address",
     "right_max_width_ratio": 0.5
   },
-
   "rules": {
     "empty_fields": "omit_section",
     "overflow_strategy": "trim_longest_section_then_drop_trailing",
     "ellipsis": "…",
     "images": "none"
   },
-
-  "email_set": {
+  "objection_set": {
     "output_format": "markdown",
-    "word_count_target": "90-140",
-    "angles": [
+    "objection_word_target": "25-45",
+    "rebuttal_word_target": "70-120",
+    "objections": [
       {
-        "key": "timing_inflection",
-        "title": "Timing & Inflection",
-        "focus": "Near-term data, launch, or regulatory inflection; why this moment is pre-repricing.",
-        "goal": "Spark internal discussion."
+        "key": "too_early",
+        "title": "Too Early",
+        "focus": "Stage and evidence: whether anything is genuinely de-risked yet, or the round is funding a hypothesis.",
+        "rebuttal_must": "Name the specific risks already retired and the evidence that retired them."
       },
       {
-        "key": "de_risking_validation",
-        "title": "De-Risking & Validation",
-        "focus": "Risks already retired and external validation from customers, regulators, partners, or non-dilutive funding.",
-        "goal": "Reduce \"too early\" objections."
+        "key": "market_size",
+        "title": "Market Size & Definition",
+        "focus": "Whether the addressable market is as large as claimed, or a top-down number masking a narrow serviceable slice.",
+        "rebuttal_must": "Separate TAM from the bottoms-up serviceable segment and show the arithmetic the deck supports."
       },
       {
-        "key": "market_structural_shift",
-        "title": "Market Structural Shift",
-        "focus": "A recent change in market behavior, regulation, infrastructure, or cost curves; why earlier attempts at this category failed and this one will not.",
-        "goal": "Reframe historical skepticism."
+        "key": "competition",
+        "title": "Competitive Threat",
+        "focus": "Whether a better-funded incumbent or a similar programme reaches the same outcome first.",
+        "rebuttal_must": "State who the real competitors are and what this company can do that they structurally cannot."
       },
       {
-        "key": "capital_efficiency_ownership",
-        "title": "Capital Efficiency & Ownership",
-        "focus": "Why capital today funds value creation rather than discovery, and how early capital compounds.",
-        "goal": "Appeal to disciplined angels and family offices."
+        "key": "differentiation_moat",
+        "title": "Moat & Defensibility",
+        "focus": "Whether the advantage is durable or replicable once the approach is public.",
+        "rebuttal_must": "Point to the specific IP, exclusivity, data, or process advantage and how long it holds."
       },
       {
-        "key": "soft_ask_reengagement",
-        "title": "Soft Ask & Re-Engagement",
-        "focus": "Relevance rather than pressure; invite a next step without assuming interest.",
-        "goal": "Keep the conversation alive."
+        "key": "team_gaps",
+        "title": "Team Gaps",
+        "focus": "Whether the team can execute the next stage, not just the current one — commercial and operational depth.",
+        "rebuttal_must": "Map named people to the next milestone and be explicit about which seat is still open."
+      },
+      {
+        "key": "regulatory_path",
+        "title": "Regulatory & Approval Path",
+        "focus": "Length, cost, and precedent of the approval or compliance route.",
+        "rebuttal_must": "Give the identified pathway, any regulator interaction on record, and the precedent it relies on."
+      },
+      {
+        "key": "capital_intensity",
+        "title": "Capital Required",
+        "focus": "Whether this round actually reaches a value-inflecting milestone or merely extends runway.",
+        "rebuttal_must": "Tie use of proceeds to a specific milestone and reconcile it against the stated runway."
+      },
+      {
+        "key": "commercial_adoption",
+        "title": "Adoption & Payor",
+        "focus": "Whether the buyer adopts and who pays, even assuming the product works.",
+        "rebuttal_must": "Identify the economic buyer, the purchase trigger, and any adoption evidence in the deck."
+      },
+      {
+        "key": "valuation_terms",
+        "title": "Valuation & Terms",
+        "focus": "Whether price and instrument are in step with stage, traction, and comparable transactions.",
+        "rebuttal_must": "Anchor to the stated terms and comparables; concede where the deck gives no basis."
+      },
+      {
+        "key": "exit_path",
+        "title": "Exit Path",
+        "focus": "Who acquires this, on what trigger, and at what kind of multiple.",
+        "rebuttal_must": "Name plausible acquirers and the comparable transactions the deck cites, or say none are given."
       }
     ]
   }

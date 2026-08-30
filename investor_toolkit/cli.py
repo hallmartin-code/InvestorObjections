@@ -1,4 +1,4 @@
-"""Click CLI: deck in, one-pager PDF and follow-up emails out."""
+"""Click CLI: deck in, one-pager PDF and investor objections out."""
 
 from __future__ import annotations
 
@@ -13,15 +13,15 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from .email_generator import (
-    EmailGenerationError,
-    emails_to_list,
-    emails_to_markdown,
-    generate_emails,
-)
 from .mailer import MailError, send_run_copy
 from .mailer import recipient as mail_recipient
-from .models import EMAIL_TITLES, DealData, EmailSet
+from .models import DealData, ObjectionSet
+from .objections import (
+    ObjectionGenerationError,
+    generate_objections,
+    objections_to_list,
+    objections_to_markdown,
+)
 from .one_pager import generate_one_pager
 from .parser import extract_text
 from .synthesizer import SynthesisError, extract_deal_data
@@ -62,9 +62,17 @@ def _spinner() -> Progress:
     show_default=True,
     help="Directory for output files.",
 )
-@click.option("--emails-only", is_flag=True, help="Skip PDF generation, generate emails only.")
-@click.option("--pdf-only", is_flag=True, help="Skip email generation, produce PDF only.")
-@click.option("--print-emails", is_flag=True, help="Print all five emails to stdout after saving.")
+@click.option(
+    "--objections-only", is_flag=True, help="Skip PDF generation, generate objections only."
+)
+@click.option(
+    "--pdf-only", is_flag=True, help="Skip objection generation, produce PDF only."
+)
+@click.option(
+    "--print-objections",
+    is_flag=True,
+    help="Print all ten objections and rebuttals to stdout after saving.",
+)
 @click.option(
     "--no-email",
     is_flag=True,
@@ -74,18 +82,18 @@ def main(
     deck_path: Path,
     context: str,
     output_dir: Path,
-    emails_only: bool,
+    objections_only: bool,
     pdf_only: bool,
-    print_emails: bool,
+    print_objections: bool,
     no_email: bool,
 ) -> None:
-    """Process an investor pitch deck and generate a one-pager PDF and follow-up emails."""
+    """Process an investor pitch deck into a one-pager PDF and ten objections with rebuttals."""
     # override=True: a project .env is an explicit, deliberate choice and should beat a
     # stale machine-wide variable. Railway sets real env vars and ships no .env file.
     load_dotenv(override=True)
 
-    if emails_only and pdf_only:
-        _fail("--emails-only and --pdf-only cannot be used together.")
+    if objections_only and pdf_only:
+        _fail("--objections-only and --pdf-only cannot be used together.")
 
     if not os.environ.get("ANTHROPIC_API_KEY", "").strip():
         _fail("ANTHROPIC_API_KEY not set. Add it to your .env file.")
@@ -131,10 +139,10 @@ def main(
     console.print(f"[green]✓[/green] Extracted deal data for [bold]{deal.company_name}[/bold]")
 
     outputs: list[tuple[str, str]] = []
-    emails: EmailSet | None = None
+    items: ObjectionSet | None = None
 
     # 3 — One-pager PDF.
-    if not emails_only:
+    if not objections_only:
         pdf_path = output_dir / f"{deal.slug()}_one_pager.pdf"
         with _spinner() as progress:
             progress.add_task("Generating one-pager…", total=None)
@@ -145,20 +153,20 @@ def main(
         outputs.append(("One-pager PDF", str(pdf_path)))
         console.print(f"[green]✓[/green] Wrote {pdf_path}")
 
-    # 4 — Follow-up emails.
+    # 4 — Objections and rebuttals.
     if not pdf_only:
-        md_path = output_dir / f"{deal.slug()}_follow_up_emails.md"
+        md_path = output_dir / f"{deal.slug()}_objections.md"
         with _spinner() as progress:
-            progress.add_task("Generating emails…", total=None)
+            progress.add_task("Generating objections…", total=None)
             try:
-                emails = generate_emails(deal, context)
-            except EmailGenerationError as exc:
+                items = generate_objections(deal, context)
+            except ObjectionGenerationError as exc:
                 _fail(str(exc))
         try:
-            md_path.write_text(emails_to_markdown(deal, emails, context), encoding="utf-8")
+            md_path.write_text(objections_to_markdown(deal, items, context), encoding="utf-8")
         except OSError as exc:
             _fail(f"Could not write {md_path}: {exc}")
-        outputs.append(("Follow-up emails", str(md_path)))
+        outputs.append(("Objections & rebuttals", str(md_path)))
         console.print(f"[green]✓[/green] Wrote {md_path}")
 
     # 5 — Archive email. A failure here must not fail a completed run.
@@ -172,7 +180,7 @@ def main(
                     deck_filename=deck_path.name,
                     context=context,
                     attachments=[Path(path) for _, path in outputs],
-                    emails=emails_to_list(emails) if emails else [],
+                    objections=objections_to_list(items) if items else [],
                 )
             except MailError as exc:
                 archive_to = None
@@ -180,14 +188,14 @@ def main(
         if archive_to:
             console.print(f"[green]✓[/green] Emailed archive copy to {archive_to}")
 
-    _print_summary(deal, outputs, emails)
+    _print_summary(deal, outputs, items)
 
-    if print_emails and emails is not None:
-        _print_emails(emails)
+    if print_objections and items is not None:
+        _print_objections(items)
 
 
 def _print_summary(
-    deal: DealData, outputs: list[tuple[str, str]], emails: EmailSet | None
+    deal: DealData, outputs: list[tuple[str, str]], items: ObjectionSet | None
 ) -> None:
     table = Table(title=f"{deal.company_name or 'Company'} — Output Summary", show_lines=False)
     table.add_column("Item", style="bold")
@@ -197,26 +205,22 @@ def _print_summary(
     for label, path in outputs:
         table.add_row(label, path, "")
 
-    if emails is not None:
-        for index, (key, title) in enumerate(EMAIL_TITLES.items(), start=1):
-            body = getattr(emails, key)
-            table.add_row(f"Email {index}", title, str(len(body.split())))
+    if items is not None:
+        for entry in objections_to_list(items):
+            table.add_row(f"Objection {entry['number']}", entry["title"], str(entry["words"]))
 
     console.print(table)
 
 
-def _print_emails(emails: EmailSet) -> None:
-    for index, (key, title) in enumerate(EMAIL_TITLES.items(), start=1):
+def _print_objections(items: ObjectionSet) -> None:
+    for entry in objections_to_list(items):
         console.print()
         console.print(
             Panel(
-                getattr(emails, key),
-                title=f"Email {index} — {title}",
+                f"[bold]Objection[/bold]\n{entry['objection']}\n\n"
+                f"[bold]Rebuttal[/bold]\n{entry['rebuttal']}",
+                title=f"{entry['number']}. {entry['title']}",
                 border_style="blue",
                 padding=(1, 2),
             )
         )
-
-
-if __name__ == "__main__":  # pragma: no cover
-    main()

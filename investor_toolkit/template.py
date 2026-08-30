@@ -1,7 +1,8 @@
 """Loader for the document structure template.
 
 The template is the single source of truth for two things: which fields are analyzed in
-every deck, and how the resulting documents are laid out. It ships inside the package at
+every deck, which objections are answered, and how the resulting documents are laid out. It
+ships inside the package at
 ``templates/one_pager_template.json`` and can be replaced per-run by pointing the
 ``INVESTOR_TOOLKIT_TEMPLATE`` environment variable at another JSON file with the same shape.
 """
@@ -15,10 +16,10 @@ from pathlib import Path
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 DEFAULT_TEMPLATE = TEMPLATE_DIR / "one_pager_template.json"
-EMAIL_MARKDOWN_TEMPLATE = TEMPLATE_DIR / "follow_up_emails_template.md"
+OBJECTION_MARKDOWN_TEMPLATE = TEMPLATE_DIR / "objections_template.md"
 
-EMAIL_BLOCK_START = "<!-- BEGIN EMAIL BLOCK"
-EMAIL_BLOCK_END = "<!-- END EMAIL BLOCK -->"
+OBJECTION_BLOCK_START = "<!-- BEGIN OBJECTION BLOCK"
+OBJECTION_BLOCK_END = "<!-- END OBJECTION BLOCK -->"
 
 REQUIRED_SECTIONS = ("analysis_fields", "page", "palette", "typography", "header", "body", "footer")
 
@@ -63,17 +64,26 @@ def analysis_fields() -> dict[str, str]:
     return {str(k): str(v) for k, v in fields.items()}
 
 
-def email_angles() -> list[dict[str, str]]:
-    """The email angles defined by the template, in output order."""
-    angles = load_template().get("email_set", {}).get("angles", [])
-    if not angles:
-        raise TemplateError("Template 'email_set.angles' must list at least one angle.")
-    return [{str(k): str(v) for k, v in angle.items()} for angle in angles]
+def objections() -> list[dict[str, str]]:
+    """The objection categories defined by the template, in output order."""
+    items = load_template().get("objection_set", {}).get("objections", [])
+    if not items:
+        raise TemplateError("Template 'objection_set.objections' must list at least one entry.")
+    return [{str(k): str(v) for k, v in item.items()} for item in items]
 
 
-def email_titles() -> dict[str, str]:
-    """Angle key to display title."""
-    return {angle["key"]: angle["title"] for angle in email_angles()}
+def objection_titles() -> dict[str, str]:
+    """Objection key to display title."""
+    return {item["key"]: item["title"] for item in objections()}
+
+
+def objection_word_targets() -> tuple[str, str]:
+    """(objection length, rebuttal length) targets declared by the template."""
+    block = load_template().get("objection_set", {})
+    return (
+        str(block.get("objection_word_target", "25-45")),
+        str(block.get("rebuttal_word_target", "70-120")),
+    )
 
 
 def section_fields() -> list[str]:
@@ -84,21 +94,23 @@ def section_fields() -> list[str]:
     return out
 
 
-def email_markdown_template() -> str:
-    """The raw Markdown skeleton used to render the follow-up email document."""
-    if not EMAIL_MARKDOWN_TEMPLATE.exists():
-        raise TemplateError(f"Email Markdown template not found: {EMAIL_MARKDOWN_TEMPLATE}")
-    return EMAIL_MARKDOWN_TEMPLATE.read_text(encoding="utf-8")
+def objection_markdown_template() -> str:
+    """The raw Markdown skeleton used to render the objections document."""
+    if not OBJECTION_MARKDOWN_TEMPLATE.exists():
+        raise TemplateError(
+            f"Objections Markdown template not found: {OBJECTION_MARKDOWN_TEMPLATE}"
+        )
+    return OBJECTION_MARKDOWN_TEMPLATE.read_text(encoding="utf-8")
 
 
-def split_email_markdown(text: str) -> tuple[str, str]:
-    """Split the Markdown skeleton into its document header and its repeatable email block."""
-    if EMAIL_BLOCK_START not in text or EMAIL_BLOCK_END not in text:
-        raise TemplateError("Email Markdown template is missing its EMAIL BLOCK markers.")
-    head, rest = text.split(EMAIL_BLOCK_START, 1)
+def split_objection_markdown(text: str) -> tuple[str, str]:
+    """Split the skeleton into its document header and its repeatable objection block."""
+    if OBJECTION_BLOCK_START not in text or OBJECTION_BLOCK_END not in text:
+        raise TemplateError("Objections Markdown template is missing its OBJECTION BLOCK markers.")
+    head, rest = text.split(OBJECTION_BLOCK_START, 1)
     # Drop the remainder of the opening marker's comment line.
     _, block = rest.split("-->", 1)
-    block = block.split(EMAIL_BLOCK_END, 1)[0]
+    block = block.split(OBJECTION_BLOCK_END, 1)[0]
     return head.rstrip("\n"), block.strip("\n")
 
 

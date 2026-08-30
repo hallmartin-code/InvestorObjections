@@ -2,9 +2,8 @@
 
 A tool for early-stage investment work, usable as a CLI or as a web app. Point it at a pitch
 deck (PDF, PPTX or DOCX) and it extracts the deal facts with Claude, then produces two artifacts: a
-branded single-page investor leave-behind PDF, and a set of five follow-up emails, each anchored
-to a different "why now" angle (timing inflection, de-risking, market structural shift, capital
-efficiency, and a soft re-engagement ask). Extraction is deliberately conservative — the model is
+branded single-page investor leave-behind PDF, and the ten objections an investor will raise
+about the deal, each with a rebuttal grounded in the deck. Extraction is deliberately conservative — the model is
 instructed to return an empty field rather than infer or embellish, so anything on the one-pager
 traces back to the deck.
 
@@ -37,7 +36,7 @@ the service variables are used directly.
 .venv/bin/investor-toolkit decks/halcyon_bio_seed.pdf \
   --context "intro via mutual LP, met at JPM Healthcare 2026" \
   --output-dir ./outputs \
-  --print-emails
+  --print-objections
 ```
 
 Or through the Makefile:
@@ -52,9 +51,9 @@ make run DECK=decks/halcyon_bio_seed.pdf CONTEXT="inbound from AngelList"
 | --- | --- |
 | `--context TEXT` | How the investor interaction occurred. Default: `initial outreach` |
 | `--output-dir PATH` | Directory for output files. Default: `./outputs` |
-| `--emails-only` | Skip PDF generation, generate emails only |
-| `--pdf-only` | Skip email generation, produce PDF only |
-| `--print-emails` | Print all five emails to stdout after saving |
+| `--objections-only` | Skip PDF generation, generate objections only |
+| `--pdf-only` | Skip objection generation, produce PDF only |
+| `--print-objections` | Print all ten objections and rebuttals to stdout after saving |
 | `--no-email` | Skip the archive email for this run (see Archive email below) |
 | `--help` | Show the help message and exit |
 
@@ -67,7 +66,8 @@ make serve          # http://127.0.0.1:8000
 Upload a deck (click or drag and drop), give the interaction context, and choose which outputs
 you want. A run takes two Claude calls and typically one to three minutes, so uploads become
 background jobs: the browser is redirected to a job page that shows a live progress stepper,
-then the five emails inline with download buttons for the PDF and the Markdown file.
+then the ten objections and rebuttals inline with download buttons for the PDF and the
+Markdown file.
 
 The interface follows the TEN Capital Network design: dark navy card on an ambient tri-colour
 glow, Sora/Inter/JetBrains Mono type, and the real three-figure brand mark. Markup lives in
@@ -139,7 +139,7 @@ a new environment needs: `MAIL_FROM` and `RUN_COPY_TO` are optional overrides th
 
 The message carries the analysis itself, not just files: a deal summary block (stage, ask, why
 now, traction, market size, business model, team, moat, risks retired, contact) and all five
-follow-up emails rendered inline with word counts, so it is readable straight from the inbox.
+objections and rebuttals rendered inline, so it is readable straight from the inbox.
 The one-pager PDF and the Markdown file are attached as well. Everything drawn from the deck is
 HTML-escaped before it reaches the body.
 
@@ -165,9 +165,10 @@ download links for the web app:
   Size on the left and Traction, Team, Stage, Ask and Key Risks Retired on the right; and a
   confidentiality footer with contact details. Content that exceeds its column is truncated with
   an ellipsis so the output is always exactly one page.
-- **`{Company}_follow_up_emails.md`** — the five follow-up emails under `## Email N — Title`
-  headers, each 90–140 words, with word counts. Written to be forwardable inside a partnership:
-  calm, factual, no hype, and no direct ask for money.
+- **`{Company}_objections.md`** — the ten objections under `## N. Title` headings, each with
+  the objection in the investor's own voice (25–45 words) and a rebuttal (70–120 words). The
+  rebuttal is grounded strictly in the deck: where the deck does not support an answer it says
+  so and names the evidence that would settle it, rather than inventing support.
 
 ## Document template
 
@@ -177,11 +178,12 @@ document format is edited in one place and applied to every future deck:
 - **`investor_toolkit/templates/one_pager_template.json`** — the analyzed field set (each field
   with the extraction guidance sent to the model), the page geometry, palette and typography,
   the header and footer blocks, the two columns and the labelled section in each, the overflow
-  rule, and the five email angles with their focus and goal. It holds structure only, no
-  company content.
-- **`investor_toolkit/templates/follow_up_emails_template.md`** — the Markdown skeleton for the
-  email document: a header block and one repeatable email block marked by
-  `<!-- BEGIN EMAIL BLOCK -->` / `<!-- END EMAIL BLOCK -->`, using `{{placeholder}}` tokens.
+  rule, and the ten objection categories with what each probes and what a strong rebuttal must
+  do. It holds structure only, no company content.
+- **`investor_toolkit/templates/objections_template.md`** — the Markdown skeleton for the
+  objections document: a header block and one repeatable objection block marked by
+  `<!-- BEGIN OBJECTION BLOCK -->` / `<!-- END OBJECTION BLOCK -->`, using `{{placeholder}}`
+  tokens.
 
 Render the blank structure to see what the template produces before running a deck through it:
 
@@ -191,16 +193,16 @@ python -m investor_toolkit.one_pager outputs/one_pager_template.pdf
 
 To use a different template for a run, point `INVESTOR_TOOLKIT_TEMPLATE` at another JSON file
 with the same shape. Adding, reordering, relabelling or moving a section between columns is a
-template edit only. Adding a *new* analyzed field also requires adding it to `DealData` in
-`models.py`; the app validates this on startup and names the offending field if the two drift
-apart.
+template edit only. Adding a *new* analyzed field also requires adding it to `DealData` in `models.py`, and a new
+objection category requires a matching field on `ObjectionSet`; the app validates both on
+startup and names the offending key if the two drift apart.
 
 ## Model configuration
 
 Both calls run on `claude-opus-5` with structured outputs (`output_config.format`), so responses
 are schema-validated JSON rather than parsed prose. Extraction runs at `medium` effort — it is a
-literal extraction task — and email generation at `high`, where writing quality is the whole
-deliverable. Responses are streamed so a long request cannot hit an HTTP read timeout.
+literal extraction task — and objection generation at `high`, where judging what the deck does
+and does not support is the actual work. Responses are streamed so a long request cannot hit an HTTP read timeout.
 
 Server-side refusal fallbacks are enabled (`fallbacks: "default"`): if Opus 5's safety
 classifiers decline a request, Anthropic re-runs it on the recommended fallback model inside the
@@ -222,7 +224,7 @@ make lint     # ruff over investor_toolkit/
 ```
 
 Layout: `parser.py` (deck ingestion), `synthesizer.py` (Claude client + deal extraction),
-`one_pager.py` (ReportLab canvas rendering), `email_generator.py` (Claude email set),
+`one_pager.py` (ReportLab canvas rendering), `objections.py` (Claude objection set),
 `models.py` (Pydantic models), `template.py` (template loading and validation),
 `templates/` (the document structure template), `cli.py` (Click entry point),
 `web.py` + `web_templates/` (FastAPI app), `mailer.py` (Resend archive copy).

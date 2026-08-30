@@ -1,7 +1,8 @@
 """Archive copy of every completed run, emailed through Resend.
 
-The message carries the analysis itself — the extracted deal summary and the five follow-up
-emails, rendered inline — with the one-pager PDF and the Markdown file attached, so the result
+The message carries the analysis itself — the extracted deal summary and the ten investor
+objections with rebuttals, rendered inline — with the one-pager PDF and the Markdown file
+attached, so the result
 is readable straight from the inbox without opening anything.
 
 ``RESEND_API_KEY`` is the only variable that must be configured per environment — it is the
@@ -104,7 +105,9 @@ def recipient() -> str | None:
 # --- body rendering -------------------------------------------------------------------
 
 
-def _render_text(deal: DealData, emails: list[dict], deck_filename: str, context: str) -> str:
+def _render_text(
+    deal: DealData, objections: list[dict], deck_filename: str, context: str
+) -> str:
     lines = [
         f"{deal.company_name or 'Unknown company'}",
         f"{deal.tagline}" if deal.tagline else "",
@@ -121,13 +124,15 @@ def _render_text(deal: DealData, emails: list[dict], deck_filename: str, context
         if value:
             lines.append(f"{label}: {value}")
 
-    if emails:
-        lines += ["", "FOLLOW-UP EMAILS", ""]
-        for item in emails:
+    if objections:
+        lines += ["", "INVESTOR OBJECTIONS & REBUTTALS", ""]
+        for item in objections:
             lines += [
-                f"--- Email {item['number']}: {item['title']} ({item['words']} words) ---",
+                f"--- {item['number']}. {item['title']} ---",
                 "",
-                item["body"].strip(),
+                "OBJECTION: " + item["objection"].strip(),
+                "",
+                "REBUTTAL: " + item["rebuttal"].strip(),
                 "",
             ]
 
@@ -135,7 +140,9 @@ def _render_text(deal: DealData, emails: list[dict], deck_filename: str, context
     return "\n".join(line for line in lines if line is not None)
 
 
-def _render_html(deal: DealData, emails: list[dict], deck_filename: str, context: str) -> str:
+def _render_html(
+    deal: DealData, objections: list[dict], deck_filename: str, context: str
+) -> str:
     def para(text: str) -> str:
         # Email clients are unreliable with white-space:pre-wrap; use real paragraphs.
         blocks = [b.strip() for b in text.strip().split("\n\n") if b.strip()]
@@ -160,15 +167,18 @@ def _render_html(deal: DealData, emails: list[dict], deck_filename: str, context
             "</tr>"
         )
 
-    email_html = ""
-    for item in emails:
-        email_html += (
+    objection_html = ""
+    for item in objections:
+        objection_html += (
             f'<div style="padding:18px 0;border-top:1px solid {RULE}">'
-            f'<div style="font-size:13px;font-weight:700;color:{NAVY};margin-bottom:2px">'
+            f'<div style="font-size:13px;font-weight:700;color:{NAVY};margin-bottom:10px">'
             f"{item['number']:02d} &nbsp;{escape(item['title'])}</div>"
-            f'<div style="font-size:11px;color:{MUTED};margin-bottom:10px">'
-            f"{item['words']} words</div>"
-            f"{para(item['body'])}"
+            f'<div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;'
+            f'color:{MUTED};margin-bottom:6px">Objection</div>'
+            f"{para(item['objection'])}"
+            f'<div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;'
+            f'color:{MUTED};margin:14px 0 6px">Rebuttal</div>'
+            f"{para(item['rebuttal'])}"
             "</div>"
         )
 
@@ -208,7 +218,8 @@ def _render_html(deal: DealData, emails: list[dict], deck_filename: str, context
 
   {'<tr><td style="padding:16px 30px 24px">'
    f'<div style="font-size:13px;font-weight:700;color:{NAVY};margin-bottom:4px">'
-   'Follow-up emails</div>' + email_html + '</td></tr>' if emails else ''}
+   'Investor objections &amp; rebuttals</div>' + objection_html + '</td></tr>'
+   if objections else ''}
 
   <tr><td style="background:#F4F6F8;padding:16px 30px;font-size:11px;color:{MUTED};
                  text-align:center">
@@ -229,7 +240,7 @@ def send_run_copy(
     deck_filename: str,
     context: str,
     attachments: list[Path],
-    emails: list[dict] | None = None,
+    objections: list[dict] | None = None,
     config: MailConfig | None = None,
 ) -> str:
     """Email the run's analysis and artifacts to the configured archive address.
@@ -239,7 +250,7 @@ def send_run_copy(
         deck_filename: the uploaded deck's original name.
         context: the interaction context the run used.
         attachments: files to attach; missing paths are skipped.
-        emails: the generated follow-ups as ``{number, title, body, words}`` dicts.
+        objections: the objections as ``{number, title, objection, rebuttal}`` dicts.
 
     Returns the Resend message id.
 
@@ -250,7 +261,7 @@ def send_run_copy(
     if config is None:
         raise MailError("Run-copy email is not configured.")
 
-    emails = emails or []
+    objections = objections or []
     files = [p for p in attachments if p and p.exists()]
     total = sum(p.stat().st_size for p in files)
     if total > MAX_ATTACHMENT_BYTES:
@@ -261,8 +272,8 @@ def send_run_copy(
         "from": config.sender,
         "to": [config.recipient],
         "subject": f"Deck analysis: {company}",
-        "text": _render_text(deal, emails, deck_filename, context),
-        "html": _render_html(deal, emails, deck_filename, context),
+        "text": _render_text(deal, objections, deck_filename, context),
+        "html": _render_html(deal, objections, deck_filename, context),
         "attachments": [
             {
                 "filename": p.name,
