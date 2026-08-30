@@ -184,3 +184,16 @@ def render_template_skeleton() -> str:
         )
         parts.append("")
     return "\n".join(parts).rstrip() + "\n"
+
+
+def emails_to_list(emails: EmailSet) -> list[dict]:
+    """The email set as ``{number, title, body, words}`` dicts, in template order."""
+    return [
+        {
+            "number": index,
+            "title": title,
+            "body": getattr(emails, key),
+            "words": len(getattr(emails, key).split()),
+        }
+        for index, (key, title) in enumerate(EMAIL_TITLES.items(), start=1)
+    ]

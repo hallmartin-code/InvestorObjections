@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <title>{% block title %}TEN Capital Network — Deck Analyzer{% endblock %}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="256x256" href="/static/ten_capital_mark.png">
+<link rel="apple-touch-icon" href="/static/ten_capital_mark.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -17,7 +20,7 @@
     --coral: #EE5A4E;
     --coral-soft: #F0776C;
     --amber: #F3A22A;
-    --teal: #35BEBB;
+    --teal: #4FC4D6;   /* sampled from the brand mark */
     --ink-100: #F3F6FA;
     --ink-300: #C4D0E0;
     --ink-500: #7E90A8;
@@ -55,7 +58,7 @@
     background:
       radial-gradient(480px 380px at 14% 8%, rgba(238,90,78,0.16), transparent 60%),
       radial-gradient(480px 380px at 86% 6%, rgba(243,162,42,0.13), transparent 60%),
-      radial-gradient(560px 420px at 50% 100%, rgba(53,190,187,0.14), transparent 60%);
+      radial-gradient(560px 420px at 50% 100%, rgba(79,196,214,0.14), transparent 60%);
     pointer-events: none;
     z-index: 0;
   }
@@ -134,7 +137,7 @@
     width: 6px; height: 6px;
     border-radius: 50%;
     background: var(--teal);
-    box-shadow: 0 0 0 3px rgba(53,190,187,0.18);
+    box-shadow: 0 0 0 3px rgba(79,196,214,0.18);
   }
   .eyebrow.amber { color: var(--amber); }
   .eyebrow.amber::before { background: var(--amber); box-shadow: 0 0 0 3px rgba(243,162,42,0.18); }
@@ -186,12 +189,12 @@
   }
   .dropzone:hover, .dropzone:focus-within {
     border-color: var(--teal);
-    background: rgba(53,190,187,0.05);
+    background: rgba(79,196,214,0.05);
   }
   .dropzone:active { transform: scale(0.997); }
   .dropzone.is-dragging {
     border-color: var(--teal);
-    background: rgba(53,190,187,0.09);
+    background: rgba(79,196,214,0.09);
   }
   .dropzone.has-file { border-style: solid; border-color: var(--teal); }
 
@@ -288,7 +291,7 @@
   .chip:has(input:checked) {
     border-color: var(--teal);
     color: var(--ink-100);
-    background: rgba(53,190,187,0.07);
+    background: rgba(79,196,214,0.07);
   }
   .chip:has(input:checked) .tick { background: var(--teal); border-color: var(--teal); }
   .chip:has(input:checked) .tick svg { opacity: 1; }
@@ -338,7 +341,7 @@
     color: var(--ink-100);
     transition: border-color .15s ease, background .15s ease, transform .15s ease;
   }
-  .btn:hover { border-color: var(--teal); background: rgba(53,190,187,0.07); transform: translateY(-1px); }
+  .btn:hover { border-color: var(--teal); background: rgba(79,196,214,0.07); transform: translateY(-1px); }
   .btn svg { width: 15px; height: 15px; flex: none; }
   .btn.primary {
     background: linear-gradient(90deg, var(--coral) 0%, var(--coral-soft) 45%, var(--amber) 100%);
@@ -475,14 +478,8 @@
 <div class="stage {% block stage_class %}{% endblock %}">
 
   <a class="brand" href="/">
-    <svg class="brand-mark" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M50 6 C64 6 74 16 74 16" stroke="var(--amber)" stroke-width="11" stroke-linecap="round" fill="none"/>
-      <path d="M76 66 C76 82 63 92 63 92" stroke="var(--teal)" stroke-width="11" stroke-linecap="round" fill="none"/>
-      <path d="M24 66 C24 82 37 92 37 92" stroke="var(--coral)" stroke-width="11" stroke-linecap="round" fill="none" transform="rotate(180 50 79)"/>
-      <circle cx="50" cy="20" r="11" fill="var(--amber)"/>
-      <circle cx="78" cy="68" r="11" fill="var(--teal)"/>
-      <circle cx="22" cy="68" r="11" fill="var(--coral)"/>
-    </svg>
+    <img class="brand-mark" src="/static/ten_capital_mark.png"
+         alt="TEN Capital Network" width="34" height="34">
     <div class="brand-word">Ten Capital<span>Network</span></div>
   </a>
 

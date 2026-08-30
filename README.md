@@ -55,6 +55,7 @@ make run DECK=decks/halcyon_bio_seed.pdf CONTEXT="inbound from AngelList"
 | `--emails-only` | Skip PDF generation, generate emails only |
 | `--pdf-only` | Skip email generation, produce PDF only |
 | `--print-emails` | Print all five emails to stdout after saving |
+| `--no-email` | Skip the archive email for this run (see Archive email below) |
 | `--help` | Show the help message and exit |
 
 ## Web app
@@ -69,9 +70,17 @@ background jobs: the browser is redirected to a job page that shows a live progr
 then the five emails inline with download buttons for the PDF and the Markdown file.
 
 The interface follows the TEN Capital Network design: dark navy card on an ambient tri-colour
-glow, Sora/Inter/JetBrains Mono type, and the three-figure brand mark. Markup lives in
+glow, Sora/Inter/JetBrains Mono type, and the real three-figure brand mark. Markup lives in
 `investor_toolkit/web_templates/` — `base.html` carries the whole design system, and
 `index.html` / `job.html` / `error.html` are the three screens.
+
+The brand mark is the authentic 256×256 asset at `investor_toolkit/static/ten_capital_mark.png`,
+served from `/static`. The favicon is derived from it: `static/favicon.ico` (16/32/48px) is
+served at the root `/favicon.ico`, which is the path browsers request on their own regardless of
+the `<link>` tags, with the 256px PNG declared alongside it for high-DPI tabs. `/static` is mounted outside the auth gate, so
+the mark and favicon still render on the HTTP Basic challenge page. The accent palette is
+sampled from that file — `--teal` is `#4FC4D6`, taken from the mark itself rather than
+approximated, so the UI accents match the logo sitting beside them.
 
 Progress updates poll `/api/jobs/{id}` and reload the page when the stage advances; with
 JavaScript disabled the page falls back to a `<meta refresh>`. File type and size are checked
@@ -121,17 +130,27 @@ Uploads are capped at 25MB.
 
 ### Archive email
 
-When `RESEND_API_KEY`, `MAIL_FROM` and `RUN_COPY_TO` are all set, every completed run emails
-its artifacts to `RUN_COPY_TO` through Resend, and the upload page's disclosure names that
-address. Setting only some of the three is treated as a misconfiguration: a warning appears on
+When `RESEND_API_KEY`, `MAIL_FROM` and `RUN_COPY_TO` are all set, **every completed run — web
+app and CLI alike — emails its results to `RUN_COPY_TO`** through Resend, and the upload page's
+disclosure names that address.
+
+The message carries the analysis itself, not just files: a deal summary block (stage, ask, why
+now, traction, market size, business model, team, moat, risks retired, contact) and all five
+follow-up emails rendered inline with word counts, so it is readable straight from the inbox.
+The one-pager PDF and the Markdown file are attached as well. Everything drawn from the deck is
+HTML-escaped before it reaches the body.
+
+Setting only some of the three variables is treated as a misconfiguration: a warning appears on
 the upload page and no copy is sent, rather than the disclosure quietly becoming untrue. Leave
 all three unset and the feature is off, with no mention of it in the UI.
 
 `MAIL_FROM` must use a domain verified in your Resend dashboard — an unverified domain is the
 usual cause of a rejected send. A mail failure never loses the analysis: the run still completes,
-the downloads still work, and the results page carries a warning with Resend's reason.
+the artifacts are still written, and the failure is reported (a warning on the results page, a
+yellow line on the CLI) with Resend's own reason.
 
-This applies to the web app only. CLI runs never send email.
+Pass `--no-email` to a CLI run to skip the archive copy for that run — useful while testing so
+the inbox doesn't fill with sample decks.
 
 ## Outputs
 

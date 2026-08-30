@@ -22,12 +22,18 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .email_generator import EmailGenerationError, emails_to_markdown, generate_emails
+from .email_generator import (
+    EmailGenerationError,
+    emails_to_list,
+    emails_to_markdown,
+    generate_emails,
+)
 from .mailer import MailError, load_config, send_run_copy
-from .models import EMAIL_TITLES, DealData, EmailSet
+from .models import DealData, EmailSet
 from .one_pager import generate_one_pager
 from .parser import SUPPORTED_EXTENSIONS, extract_text
 from .synthesizer import SynthesisError, extract_deal_data
@@ -60,6 +66,11 @@ TEMPLATE_DIR = Path(__file__).parent / "web_templates"
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 
 app = FastAPI(title="TEN Capital — Investor Toolkit", docs_url=None, redoc_url=None)
+
+STATIC_DIR = Path(__file__).parent / "static"
+# Brand assets are public by design — mounted before the auth dependency so the mark
+# and favicon still render on the 401 challenge page.
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 _executor = ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="deck")
 _jobs: dict[str, Job] = {}
@@ -215,15 +226,7 @@ def _run_job(job: Job, deck_path: Path) -> None:
                 emails_to_markdown(deal, emails, job.context), encoding="utf-8"
             )
             job.md_path = md_path
-            job.emails = [
-                {
-                    "number": index,
-                    "title": title,
-                    "body": getattr(emails, key),
-                    "words": len(getattr(emails, key).split()),
-                }
-                for index, (key, title) in enumerate(EMAIL_TITLES.items(), start=1)
-            ]
+            job.emails = emails_to_list(emails)
 
         # The archive copy is a side effect, not the deliverable: a mail failure is
         # reported on the results page but never loses a completed analysis.
@@ -231,10 +234,11 @@ def _run_job(job: Job, deck_path: Path) -> None:
             job.stage = STAGE_MAIL
             try:
                 send_run_copy(
-                    company=job.company,
+                    deal=deal,
                     deck_filename=job.filename,
                     context=job.context,
                     attachments=[p for p in (job.pdf_path, job.md_path) if p],
+                    emails=job.emails,
                 )
                 job.mail_status = "sent"
             except MailError as exc:
@@ -249,6 +253,12 @@ def _run_job(job: Job, deck_path: Path) -> None:
 
 
 # --- routes ---------------------------------------------------------------------------
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon() -> FileResponse:
+    """Browsers request this path directly, regardless of the <link> tags."""
+    return FileResponse(STATIC_DIR / "favicon.ico", media_type="image/x-icon")
 
 
 @app.get("/healthz")

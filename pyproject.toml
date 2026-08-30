@@ -40,7 +40,7 @@ build-backend = "setuptools.build_meta"
 packages = ["investor_toolkit"]
 
 [tool.setuptools.package-data]
-investor_toolkit = ["templates/*.json", "templates/*.md", "web_templates/*.html"]
+investor_toolkit = ["templates/*.json", "templates/*.md", "web_templates/*.html", "static/*.png", "static/*.ico"]
 
 [tool.ruff]
 line-length = 100

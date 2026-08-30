@@ -13,7 +13,14 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from .email_generator import EmailGenerationError, emails_to_markdown, generate_emails
+from .email_generator import (
+    EmailGenerationError,
+    emails_to_list,
+    emails_to_markdown,
+    generate_emails,
+)
+from .mailer import MailError, send_run_copy
+from .mailer import recipient as mail_recipient
 from .models import EMAIL_TITLES, DealData, EmailSet
 from .one_pager import generate_one_pager
 from .parser import extract_text
@@ -58,6 +65,11 @@ def _spinner() -> Progress:
 @click.option("--emails-only", is_flag=True, help="Skip PDF generation, generate emails only.")
 @click.option("--pdf-only", is_flag=True, help="Skip email generation, produce PDF only.")
 @click.option("--print-emails", is_flag=True, help="Print all five emails to stdout after saving.")
+@click.option(
+    "--no-email",
+    is_flag=True,
+    help="Skip the archive email for this run (see RUN_COPY_TO in .env).",
+)
 def main(
     deck_path: Path,
     context: str,
@@ -65,6 +77,7 @@ def main(
     emails_only: bool,
     pdf_only: bool,
     print_emails: bool,
+    no_email: bool,
 ) -> None:
     """Process an investor pitch deck and generate a one-pager PDF and follow-up emails."""
     # override=True: a project .env is an explicit, deliberate choice and should beat a
@@ -147,6 +160,25 @@ def main(
             _fail(f"Could not write {md_path}: {exc}")
         outputs.append(("Follow-up emails", str(md_path)))
         console.print(f"[green]✓[/green] Wrote {md_path}")
+
+    # 5 — Archive email. A failure here must not fail a completed run.
+    archive_to = None if no_email else mail_recipient()
+    if archive_to:
+        with _spinner() as progress:
+            progress.add_task("Emailing archive copy…", total=None)
+            try:
+                send_run_copy(
+                    deal=deal,
+                    deck_filename=deck_path.name,
+                    context=context,
+                    attachments=[Path(path) for _, path in outputs],
+                    emails=emails_to_list(emails) if emails else [],
+                )
+            except MailError as exc:
+                archive_to = None
+                err_console.print(f"[yellow]![/yellow] Archive email not sent: {exc}")
+        if archive_to:
+            console.print(f"[green]✓[/green] Emailed archive copy to {archive_to}")
 
     _print_summary(deal, outputs, emails)
 
