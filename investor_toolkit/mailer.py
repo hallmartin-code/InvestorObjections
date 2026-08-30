@@ -4,9 +4,11 @@ The message carries the analysis itself — the extracted deal summary and the f
 emails, rendered inline — with the one-pager PDF and the Markdown file attached, so the result
 is readable straight from the inbox without opening anything.
 
-Disabled unless all three of ``RESEND_API_KEY``, ``MAIL_FROM`` and ``RUN_COPY_TO`` are set.
-A partial configuration is treated as a misconfiguration and surfaced rather than silently
-ignored — a disclosure that promises an emailed copy must not quietly stop being true.
+``RESEND_API_KEY`` is the only variable that must be configured per environment — it is the
+one real secret. The sender and recipient fall back to the TEN Capital defaults below, so a new
+deployment needs one variable rather than three. Setting a sender or recipient *without* the API
+key is still a misconfiguration and is surfaced rather than silently ignored — a disclosure that
+promises an emailed copy must not quietly stop being true.
 """
 
 from __future__ import annotations
@@ -19,6 +21,11 @@ from html import escape
 from pathlib import Path
 
 from .models import DealData
+
+# Defaults so only the secret has to be set per environment. Override with MAIL_FROM /
+# RUN_COPY_TO. The sender's domain must be verified in the Resend dashboard.
+DEFAULT_SENDER = "TEN Capital Deck Analyzer <deck-analyzer@tencapital.group>"
+DEFAULT_RECIPIENT = "Info@tencapital.group"
 
 RESEND_ENDPOINT = "https://api.resend.com/emails"
 REQUEST_TIMEOUT_SECONDS = 20.0
@@ -67,15 +74,22 @@ def load_config() -> MailConfig | None:
     sender = os.environ.get("MAIL_FROM", "").strip()
     recipient = os.environ.get("RUN_COPY_TO", "").strip()
 
-    present = {"RESEND_API_KEY": api_key, "MAIL_FROM": sender, "RUN_COPY_TO": recipient}
-    if not any(present.values()):
+    if not api_key:
+        # Sender/recipient without the key means someone configured half of it.
+        configured = [n for n, v in (("MAIL_FROM", sender), ("RUN_COPY_TO", recipient)) if v]
+        if configured:
+            raise MailError(
+                "Run-copy email is partially configured: "
+                + ", ".join(configured)
+                + " is set but RESEND_API_KEY is missing."
+            )
         return None
-    missing = [name for name, value in present.items() if not value]
-    if missing:
-        raise MailError(
-            "Run-copy email is partially configured; missing: " + ", ".join(missing)
-        )
-    return MailConfig(api_key=api_key, sender=sender, recipient=recipient)
+
+    return MailConfig(
+        api_key=api_key,
+        sender=sender or DEFAULT_SENDER,
+        recipient=recipient or DEFAULT_RECIPIENT,
+    )
 
 
 def recipient() -> str | None:
@@ -174,7 +188,7 @@ def _render_html(deal: DealData, emails: list[dict], deck_filename: str, context
               font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif">
 
   <tr><td style="background:{NAVY};padding:26px 30px">
-    <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#35BEBB">
+    <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#4FC4D6">
       Deck Analysis</div>
     <div style="font-size:22px;font-weight:700;color:#ffffff;margin-top:8px">{heading}</div>
     {tagline}

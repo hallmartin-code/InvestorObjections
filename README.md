@@ -110,6 +110,7 @@ against `/healthz`.
 2. Set the service variables:
    - `ANTHROPIC_API_KEY` — **required**
    - `APP_PASSWORD` — strongly recommended (see below)
+   - `RESEND_API_KEY` — to email a copy of every run (see Archive email)
 3. Deploy, then generate a public domain for the service. Railway injects `PORT`; the start
    command already binds to it on `0.0.0.0`.
 4. Keep the service at one replica.
@@ -120,9 +121,9 @@ against `/healthz`.
 | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | Yes | Claude API key. Without it the form is disabled and `POST /jobs` returns 503 |
 | `APP_PASSWORD` | No | When set, the whole site is behind HTTP Basic auth (any username, this password). When unset, the deployment is **open to anyone with the URL — and every run spends on your API key** |
-| `RESEND_API_KEY` | No | Resend API key, for the archive copy (below) |
-| `MAIL_FROM` | No | Sender, e.g. `Deck Analyzer <deck-analyzer@tencapital.group>` |
-| `RUN_COPY_TO` | No | Address that receives a copy of every completed run |
+| `RESEND_API_KEY` | No | Switches the archive email on (below). The only mail variable you need |
+| `MAIL_FROM` | No | Override the sender. Default: `TEN Capital Deck Analyzer <deck-analyzer@tencapital.group>` |
+| `RUN_COPY_TO` | No | Override the recipient. Default: `Info@tencapital.group` |
 | `JOB_TTL_SECONDS` | No | How long artifacts are kept. Default `3600` |
 | `WEB_MAX_WORKERS` | No | Concurrent decks processed. Default `2` |
 
@@ -130,9 +131,11 @@ Uploads are capped at 25MB.
 
 ### Archive email
 
-When `RESEND_API_KEY`, `MAIL_FROM` and `RUN_COPY_TO` are all set, **every completed run — web
-app and CLI alike — emails its results to `RUN_COPY_TO`** through Resend, and the upload page's
-disclosure names that address.
+Set `RESEND_API_KEY` and **every completed run — web app and CLI alike — emails its results**
+through Resend, with the upload page's disclosure naming the recipient. That one variable is all
+a new environment needs: `MAIL_FROM` and `RUN_COPY_TO` are optional overrides that default to
+`TEN Capital Deck Analyzer <deck-analyzer@tencapital.group>` and `Info@tencapital.group`
+(both defined at the top of `mailer.py`).
 
 The message carries the analysis itself, not just files: a deal summary block (stage, ask, why
 now, traction, market size, business model, team, moat, risks retired, contact) and all five
@@ -140,9 +143,9 @@ follow-up emails rendered inline with word counts, so it is readable straight fr
 The one-pager PDF and the Markdown file are attached as well. Everything drawn from the deck is
 HTML-escaped before it reaches the body.
 
-Setting only some of the three variables is treated as a misconfiguration: a warning appears on
-the upload page and no copy is sent, rather than the disclosure quietly becoming untrue. Leave
-all three unset and the feature is off, with no mention of it in the UI.
+Setting `MAIL_FROM` or `RUN_COPY_TO` *without* `RESEND_API_KEY` is a genuine half-configuration:
+a warning appears on the upload page and no copy is sent, rather than the disclosure quietly
+becoming untrue. Leave all three unset and the feature is off, with no mention of it in the UI.
 
 `MAIL_FROM` must use a domain verified in your Resend dashboard — an unverified domain is the
 usual cause of a rejected send. A mail failure never loses the analysis: the run still completes,
