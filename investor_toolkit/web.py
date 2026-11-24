@@ -36,6 +36,7 @@ from .objections import (
 )
 from .one_pager import generate_one_pager
 from .parser import SUPPORTED_EXTENSIONS, extract_text
+from .report import generate_objections_report
 from .synthesizer import SynthesisError, extract_deal_data
 
 # override=True: a project .env is an explicit, deliberate choice and should beat a stale
@@ -129,6 +130,7 @@ class Job:
     company: str = ""
     pdf_path: Path | None = None
     md_path: Path | None = None
+    report_path: Path | None = None
     objections: list[dict] = field(default_factory=list)
     mail_to: str | None = None
     mail_status: str | None = None  # None | "sent" | "failed"
@@ -171,6 +173,7 @@ class Job:
             "company": self.company,
             "pdf": f"/jobs/{self.id}/download/pdf" if self.pdf_path else None,
             "markdown": f"/jobs/{self.id}/download/markdown" if self.md_path else None,
+            "report": f"/jobs/{self.id}/download/report" if self.report_path else None,
             "objections": self.objections,
             "mail_to": self.mail_to,
             "mail_status": self.mail_status,
@@ -227,6 +230,9 @@ def _run_job(job: Job, deck_path: Path) -> None:
             )
             job.md_path = md_path
             job.objections = objections_to_list(items)
+            report_path = job.workdir / f"{deal.slug()}_objections_report.pdf"
+            generate_objections_report(deal, job.objections, job.context, str(report_path))
+            job.report_path = report_path
 
         # The archive copy is a side effect, not the deliverable: a mail failure is
         # reported on the results page but never loses a completed analysis.
@@ -237,7 +243,9 @@ def _run_job(job: Job, deck_path: Path) -> None:
                     deal=deal,
                     deck_filename=job.filename,
                     context=job.context,
-                    attachments=[p for p in (job.pdf_path, job.md_path) if p],
+                    attachments=[
+                        p for p in (job.pdf_path, job.report_path, job.md_path) if p
+                    ],
                     objections=job.objections,
                 )
                 job.mail_status = "sent"
@@ -378,8 +386,12 @@ def job_status(job_id: str, _: None = Depends(require_access)) -> JSONResponse:
 @app.get("/jobs/{job_id}/download/{kind}")
 def download(job_id: str, kind: str, _: None = Depends(require_access)) -> FileResponse:
     job = _get_job(job_id)
-    path = job.pdf_path if kind == "pdf" else job.md_path if kind == "markdown" else None
+    artifacts = {
+        "pdf": (job.pdf_path, "application/pdf"),
+        "report": (job.report_path, "application/pdf"),
+        "markdown": (job.md_path, "text/markdown"),
+    }
+    path, media = artifacts.get(kind, (None, None))
     if path is None or not path.exists():
         raise HTTPException(status_code=404, detail="That artifact is not available.")
-    media = "application/pdf" if kind == "pdf" else "text/markdown"
     return FileResponse(path, media_type=media, filename=path.name)

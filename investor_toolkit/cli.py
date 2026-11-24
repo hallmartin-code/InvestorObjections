@@ -24,6 +24,7 @@ from .objections import (
 )
 from .one_pager import generate_one_pager
 from .parser import extract_text
+from .report import generate_objections_report
 from .synthesizer import SynthesisError, extract_deal_data
 
 console = Console()
@@ -168,6 +169,16 @@ def main(
             _fail(f"Could not write {md_path}: {exc}")
         outputs.append(("Objections & rebuttals", str(md_path)))
         console.print(f"[green]✓[/green] Wrote {md_path}")
+
+        report_path = output_dir / f"{deal.slug()}_objections_report.pdf"
+        try:
+            generate_objections_report(
+                deal, objections_to_list(items), context, str(report_path)
+            )
+        except Exception as exc:
+            _fail(f"Objections report generation failed: {exc}")
+        outputs.append(("Objections report PDF", str(report_path)))
+        console.print(f"[green]✓[/green] Wrote {report_path}")
 
     # 5 — Archive email. A failure here must not fail a completed run.
     archive_to = None if no_email else mail_recipient()
